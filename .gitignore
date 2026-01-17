@@ -1,0 +1,10 @@
+# Python sanal ortamı
+backend/venv/
+backend/__pycache__/
+
+# Node modülleri
+frontend/node_modules/
+frontend/dist/
+
+# Mac sistem dosyaları
+.DS_Store

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from "react-router-dom";
 
 const Register = () => {
+  const navigate = useNavigate();
   // Form verilerini tutan state
   const [formData, setFormData] = useState({
     fullName: '',
@@ -39,7 +41,7 @@ const Register = () => {
 
       if (response.status === 201 || response.status === 200) {
         alert("Kayıt başarılı! Giriş sayfasına yönlendiriliyorsunuz.");
-        // window.location.href = "/login"; // Giriş sayfasına yönlendirme
+        navigate("/login");
       }
     } catch (error) {
       console.error("Kayıt hatası:", error);
@@ -178,7 +180,8 @@ const Register = () => {
           </form>
 
           <p className="text-slate-500 text-center mt-6 text-sm">
-            Zaten hesabın var mı? <span className="text-purple-600 font-bold hover:underline cursor-pointer">Giriş Yap</span>
+            Zaten hesabın var mı? <span className="text-purple-600 font-bold hover:underline cursor-pointer"
+            onClick={() => navigate("/login")}>Giriş Yap</span>
           </p>
         </div>
       </div>

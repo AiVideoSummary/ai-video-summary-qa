@@ -89,3 +89,27 @@ async def fetch_transcript(url: str):
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
     return result
+
+# 1. Login verisi için şema (RegisterSchema'nın altına ekle)
+class LoginSchema(BaseModel):
+    email: str
+    password: str
+
+# 2. Login Endpoint'i (Register endpoint'inin altına ekle)
+@app.post("/api/auth/login")
+async def login_user(login_data: LoginSchema, db: Session = Depends(get_db)):
+    # Veritabanında kullanıcıyı ara
+    user = db.query(models.User).filter(models.User.email == login_data.email).first()
+    
+    # Kullanıcı yoksa veya şifre yanlışsa hata döndür
+    if not user or user.password_hash != login_data.password:
+        raise HTTPException(status_code=401, detail="E-posta veya şifre hatalı!")
+    
+    # Başarılı ise kullanıcı bilgilerini döndür
+    return {
+        "message": "Giriş başarılı!",
+        "user": {
+            "id": user.user_id,
+            "full_name": user.full_name
+        }
+    }

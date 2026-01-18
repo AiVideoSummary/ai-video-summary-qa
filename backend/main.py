@@ -1,56 +1,91 @@
-from fastapi import FastAPI, HTTPException
-from app.infrastructure.database import engine
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from app.infrastructure.database import engine, get_db # get_db'yi buradan çekiyoruz
 from app.domain import models
+from pydantic import BaseModel
 import re
-import yt_dlp  # Yeni ve güçlü kütüphanemiz 
+import yt_dlp
 
-# Veritabanı tablolarını otomatik oluşturur [cite: 16]
+# Veritabanı tablolarını oluşturur
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="NoteGenie API")
 
-# --- 3. GÜN: YOUTUBE VERİ ÇEKME MODÜLÜ (yt-dlp Versiyonu) --- [cite: 17, 18]
+# --- 1. ÖNEMLİ: CORS AYARI ---
+# Frontend'in (localhost:5173) Backend'e erişmesine izin verir
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
+# Kayıt verisi için şema
+class RegisterSchema(BaseModel):
+    full_name: str
+    email: str
+    password: str
+    university: str
+    department: str
+    grade: str
+
+# --- 2. KAYIT OL ENDPOINT'I ---
+@app.post("/api/auth/register")
+async def register_user(user_data: RegisterSchema, db: Session = Depends(get_db)):
+    try:
+        # User modelindeki sütun isimleriyle birebir eşleştiriyoruz
+        new_user = models.User(
+            full_name=user_data.full_name,
+            email=user_data.email,
+            password_hash=user_data.password, # 'password' yerine 'password_hash'
+            class_year=int(user_data.grade),   # 'grade' yerine 'class_year'
+            # Not: Şu an üniversite ve bölüm ID bekliyor, geçici olarak None bırakabiliriz
+            university_id=None, 
+            department_id=None
+        )
+        
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        
+        return {"message": "Kayıt başarılı!", "user": new_user.full_name}
+    except Exception as e:
+        db.rollback()
+        print(f"Veritabanı Hatası: {str(e)}")
+        raise HTTPException(status_code=400, detail="Veritabanına kayıt yapılamadı.")
+# --- 3. GÜN: YOUTUBE VERİ ÇEKME MODÜLÜ ---
 def get_youtube_transcript(video_url: str):
     try:
-        # 1. Video ID'sini ayıkla
         video_id_match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11}).*", video_url)
         if not video_id_match:
             return {"success": False, "error": "Geçersiz YouTube URL'si"}
         
-        # 2. yt-dlp Ayarları: Sadece altyazı bilgilerini indir, videoyu indirme
         ydl_opts = {
             'skip_download': True,
-            'writeautomaticsub': True,  # Otomatik altyazıları çekmesini söyler
-            'subtitleslangs': ['tr', 'en'], # Önce Türkçe sonra İngilizce bak
+            'writeautomaticsub': True,
+            'subtitleslangs': ['tr', 'en'],
             'quiet': True
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
-            
-            # Altyazıları kontrol et (Otomatik veya Manuel fark etmez)
             subtitles = info.get('requested_subtitles')
-            
             if subtitles:
-                # Altyazı verisi bulundu mesajı (Core Function temel taşı) [cite: 20]
-                return {"success": True, "transcript": "Altyazı verisi başarıyla yakalandı. İşlemeye hazır!"}
+                return {"success": True, "transcript": "Altyazı verisi başarıyla yakalandı."}
             else:
-                return {"success": False, "error": "Bu video için altyazı desteği bulunamadı."} [cite: 21]
-
+                return {"success": False, "error": "Altyazı desteği bulunamadı."}
     except Exception as e:
-        # 3. Gün: Hata Yönetimi [cite: 21]
         return {"success": False, "error": f"Sistem hatası: {str(e)}"}
 
 @app.get("/")
 def read_root():
     return {"message": "NoteGenie Backend Çalışıyor!"}
 
-# Test için oluşturduğumuz yeni kapı (Endpoint) [cite: 18]
 @app.get("/get-transcript/")
 async def fetch_transcript(url: str):
     result = get_youtube_transcript(url)
     if not result["success"]:
-        # Hata durumunda 400 döner [cite: 21]
         raise HTTPException(status_code=400, detail=result["error"])
     return result

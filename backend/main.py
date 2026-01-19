@@ -105,7 +105,37 @@ def get_youtube_transcript(video_url: str):
     except Exception as e:
         return {"success": False, "error": f"yt-dlp Hatası: {str(e)}"}
 # --- ENDPOINT'LER ---
+# --- KAYIT OL ENDPOINT ---
 
+@app.post("/api/auth/register")
+async def register_user(user_data: RegisterSchema, db: Session = Depends(get_db)):
+    existing_user = db.query(models.User).filter(models.User.email == user_data.email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Bu e-posta adresi zaten kayıtlı!")
+
+    try:
+        # DİKKAT: Senin modelinde university_id ve department_id var.
+        # Şimdilik hata almamak için isimleri senin modelindeki sütunlara eşliyoruz.
+        new_user = models.User(
+            full_name=user_data.full_name,
+            email=user_data.email,
+            password_hash=user_data.password,
+            # Modelindeki sütun isimleri class_year iken şemada grade geliyor
+            class_year=int(user_data.grade.split('.')[0]) if user_data.grade else None
+            # university_id ve department_id için şimdilik null bırakıyoruz 
+            # veya üniversite tablosundan ID bulman gerekecek.
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        
+        return {"message": "Kayıt başarıyla tamamlandı!", "user_id": new_user.user_id}
+    
+    except Exception as e:
+        db.rollback()
+        print(f"KAYIT HATASI: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Sistemsel Hata: {str(e)}")
+      
 @app.post("/api/auth/login")
 async def login_user(login_data: LoginSchema, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == login_data.email.strip()).first()

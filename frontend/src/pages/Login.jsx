@@ -16,10 +16,16 @@ const Login = () => {
         password: password,
       });
 
-      if (response.data.message === "Giriş başarılı!") {
-        alert("Hoş geldin " + response.data.user.full_name);
-        navigate("/dashboard");
-      }
+    if (response.data.message === "Giriş başarılı!") {
+  // Kullanıcı bilgisini kaydediyoruz
+  localStorage.setItem("user", JSON.stringify({
+    full_name: response.data.user.full_name,
+    department: "Bilgisayar Mühendisliği" // Şimdilik statik, ileride veritabanından çekilebilir
+  }));
+  
+  alert("Hoş geldin " + response.data.user.full_name);
+  navigate("/dashboard");
+}
     } catch (error) {
       alert("Hata: " + (error.response?.data?.detail || "Giriş yapılamadı"));
     }

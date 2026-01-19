@@ -98,14 +98,21 @@ class LoginSchema(BaseModel):
 # 2. Login Endpoint'i (Register endpoint'inin altına ekle)
 @app.post("/api/auth/login")
 async def login_user(login_data: LoginSchema, db: Session = Depends(get_db)):
-    # Veritabanında kullanıcıyı ara
-    user = db.query(models.User).filter(models.User.email == login_data.email).first()
+    # 1. E-posta ile kullanıcıyı çek (Büyük/küçük harf duyarlılığı için .strip() ekledik)
+    user = db.query(models.User).filter(models.User.email == login_data.email.strip()).first()
     
-    # Kullanıcı yoksa veya şifre yanlışsa hata döndür
-    if not user or user.password_hash != login_data.password:
+    # DEBUG: Terminale ne geldiğini yazdıralım (Bunu hata çözülünce sileriz)
+    if user:
+        print(f"--- LOGIN DENEMESİ ---")
+        print(f"Gelen Şifre: '{login_data.password}'")
+        print(f"DB'deki Şifre: '{user.password_hash}'")
+    else:
+        print(f"Kullanıcı bulunamadı: {login_data.email}")
+
+    # 2. Karşılaştırma yap
+    if not user or user.password_hash.strip() != login_data.password.strip():
         raise HTTPException(status_code=401, detail="E-posta veya şifre hatalı!")
     
-    # Başarılı ise kullanıcı bilgilerini döndür
     return {
         "message": "Giriş başarılı!",
         "user": {

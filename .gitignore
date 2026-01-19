@@ -8,3 +8,6 @@ frontend/dist/
 
 # Mac sistem dosyaları
 .DS_Store
+
+**/.env
+.env

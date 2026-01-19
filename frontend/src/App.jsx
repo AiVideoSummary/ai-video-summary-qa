@@ -1,12 +1,14 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Home from './pages/Home';
+import Home from './pages/Home'; // Senin Landing Page sayfan
 import Register from './pages/Register';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Sidebar from './components/Sidebar';
 import BookletDetail from './pages/BookletDetail';
+import AddVideo from './pages/AddVideo';
 
+// Dashboard ve iç sayfalar için Sidebar'lı düzen
 const DashboardLayout = ({ children }) => (
   <div className="flex min-h-screen bg-slate-50 font-sans">
     <Sidebar />
@@ -20,8 +22,8 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* ARTIK BURASI DASHBOARD'A GİDİYOR: Login'e dönüp durmazsın */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* DÜZELTME 1: Ana sayfa artık senin tasarımın (Home) olacak */}
+        <Route path="/" element={<Home />} />
         
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -43,9 +45,17 @@ function App() {
             </DashboardLayout>
           } 
         />
+        <Route 
+  path="/video-ekle" 
+  element={
+    <DashboardLayout>
+      <AddVideo />
+    </DashboardLayout>
+  } 
+/>
 
-        {/* Bilinmeyen yollarda da Dashboard'da kalmanı sağlar */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        {/* DÜZELTME 2: Bilinmeyen yollarda Dashboard yerine ana sayfaya (Home) döner */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

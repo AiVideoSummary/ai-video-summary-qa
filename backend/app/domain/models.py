@@ -44,11 +44,12 @@ class Course(Base):
 class Video(Base):
     __tablename__ = "videos"
     video_id = Column(Integer, primary_key=True, index=True)
-    course_id = Column(Integer, ForeignKey("courses.course_id"))
+    course_id = Column(Integer, ForeignKey("courses.course_id"), nullable=True) # Şimdilik nullable yaptık
     title = Column(String, nullable=False)
     youtube_url = Column(Text, nullable=False)
-    duration_seconds = Column(Integer)
-    order_index = Column(Integer)
+    transcript = Column(Text, nullable=True)  # BU SATIRI EKLEDİK
+    duration_seconds = Column(Integer, nullable=True)
+    order_index = Column(Integer, nullable=True)
     processed_by_ai = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
 

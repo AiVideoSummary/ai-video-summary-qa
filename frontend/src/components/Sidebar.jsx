@@ -18,7 +18,7 @@ const Sidebar = () => {
   const menuItems = [
     { name: "Ana Sayfa", path: "/dashboard", icon: <Home size={20} /> },
     { name: "Kütüphanem", path: "/library", icon: <BookOpen size={20} /> },
-    { name: "Video Ekle", path: "/summarize", icon: <PlusCircle size={20} /> },
+    { name: "Video Ekle", path: "/video-ekle", icon: <PlusCircle size={20} /> },
     { name: "Kaydettiklerim", path: "/saved", icon: <Bookmark size={20} /> },
     { name: "Ayarlar", path: "/settings", icon: <Settings size={20} /> },
   ];

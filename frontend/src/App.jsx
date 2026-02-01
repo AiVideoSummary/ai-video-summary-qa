@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Sidebar from './components/Sidebar';
 import BookletDetail from './pages/BookletDetail';
 import AddVideo from './pages/AddVideo';
+import VideoDetail from './pages/VideoDetail';
 
 // Dashboard ve iç sayfalar için Sidebar'lı düzen
 const DashboardLayout = ({ children }) => (
@@ -50,6 +51,14 @@ function App() {
   element={
     <DashboardLayout>
       <AddVideo />
+    </DashboardLayout>
+  } 
+/>
+<Route 
+  path="/video-detay/:id" 
+  element={
+    <DashboardLayout>
+      <VideoDetail />
     </DashboardLayout>
   } 
 />

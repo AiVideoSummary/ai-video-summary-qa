@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, Boolean,JSON
 from app.infrastructure.database import Base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -48,6 +48,11 @@ class Video(Base):
     title = Column(String, nullable=False)
     youtube_url = Column(Text, nullable=False)
     transcript = Column(Text, nullable=True)  # BU SATIRI EKLEDİK
+    summary = Column(Text, nullable=True)
+
+    key_points = Column(Text, nullable=True) # Madde madde önemli noktalar
+    timestamps = Column(JSON, nullable=True) # [{"time": "02:30", "label": "Giriş"}] gibi...
+
     duration_seconds = Column(Integer, nullable=True)
     order_index = Column(Integer, nullable=True)
     processed_by_ai = Column(Boolean, default=False)

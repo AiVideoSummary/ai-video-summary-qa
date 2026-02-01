@@ -9,9 +9,25 @@ import re
 import yt_dlp
 import requests
 from youtube_transcript_api import YouTubeTranscriptApi
-
+from transformers import pipeline
+from sqlalchemy import text
 # Veritabanı tablolarını oluşturur
 models.Base.metadata.create_all(bind=engine)
+
+with engine.connect() as conn:
+    try:
+        # PostgreSQL'de 'summary' sütunu var mı diye bakıyoruz, yoksa ekliyoruz
+        conn.execute(text("ALTER TABLE videos ADD COLUMN IF NOT EXISTS summary TEXT"))
+        conn.execute(text("ALTER TABLE videos ADD COLUMN IF NOT EXISTS key_points TEXT"))
+        conn.execute(text("ALTER TABLE videos ADD COLUMN IF NOT EXISTS timestamps JSON"))
+        conn.commit()
+        print("Bilgi: 'summary', 'key_points', ve 'timestamps' sütunları kontrol edildi/eklendi.")
+    except Exception as e:
+        # Hata değil, sadece bir uyarı olarak yazdırıyoruz
+        print(f"Uyarı: Sütun kontrolü sırasında bir durum oluştu: {e}")
+
+summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+
 
 app = FastAPI(title="NoteGenie API")
 
@@ -76,7 +92,20 @@ def get_youtube_transcript(video_url: str):
                 actual_info = info # Eğer hata verirse ham info ile devam et
 
             subs = actual_info.get('subtitles') or actual_info.get('automatic_captions') or {}
-            lang = 'tr' if 'tr' in subs else ('en' if 'en' in subs else None)
+
+# Mevcut dilleri listele
+            available_langs = list(subs.keys())
+
+# Önce Türkçe, sonra İngilizce, yoksa bulduğun ilk dili al
+            if 'tr' in available_langs:
+                lang = 'tr'
+            elif 'en' in available_langs:
+                lang = 'en'
+            elif available_langs:
+                lang = available_langs[0]
+            else:
+                lang = None
+
             
             if lang and subs[lang]:
                 # Altyazı URL'sini JSON3 formatında bulmaya çalış
@@ -104,6 +133,52 @@ def get_youtube_transcript(video_url: str):
 
     except Exception as e:
         return {"success": False, "error": f"yt-dlp Hatası: {str(e)}"}
+    
+def generate_summary(text: str):
+    if not text or len(text) < 100:
+        return "Özet oluşturmak için yeterli metin bulunamadı."
+
+    # 1. Metni 1000 karakterlik parçalara (chunk) bölelim
+    chunk_size = 1000 
+    chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
+    
+    summaries = []
+    print(f"Toplam {len(chunks)} parça işleniyor...")
+
+    # 2. Her parçayı tek tek özetleyelim
+    for chunk in chunks:
+        try:
+            # max_length ve min_length değerlerini her parça için dengeliyoruz
+            res = summarizer(chunk, max_length=100, min_length=30, do_sample=False)
+            summaries.append(res[0]['summary_text'])
+        except Exception as e:
+            print(f"Bir parça özetlenirken hata oluştu: {e}")
+            continue
+
+    # 3. Tüm küçük özetleri birleştirip son bir genel özet yapalım
+    combined_summary = " ".join(summaries)
+    
+    # Eğer birleştirilmiş özet çok uzunsa onu da bir tur kısaltabiliriz
+    if len(combined_summary) > 1000:
+        final_res = summarizer(combined_summary[:1024], max_length=200, min_length=100, do_sample=False)
+        return final_res[0]['summary_text']
+        
+    return combined_summary
+
+def extract_key_points(text: str):
+    # Prompt İyileştirmesi: AI'ya sadece özetleme değil, bir "etiket/başlık" oluştur diyoruz
+    # Max length'i iyice kısaltıyoruz ki başlık tadında olsun
+    try:
+        res = summarizer(text, max_length=40, min_length=5, do_sample=False)
+        label = res[0]['summary_text'].replace("•", "").strip()
+        
+        # Eğer cümle çok uzun gelirse veya yarım kalırsa ilk 50 karakteri alıp "..." eklemiyoruz, 
+        # çünkü summarizer zaten kısa tutacak.
+        return label.capitalize()
+    except:
+        return "Bölüm Özeti"
+
+
 # --- ENDPOINT'LER ---
 # --- KAYIT OL ENDPOINT ---
 
@@ -149,6 +224,8 @@ async def get_courses(db: Session = Depends(get_db)):
     courses = db.query(models.Course).all()
     return courses
 
+
+
 # GÜNCELLENMİŞ VİDEO EKLEME (Koleksiyon Bağlantılı)
 @app.post("/api/v1/videos/add")
 async def add_video(video_data: VideoAddSchema, db: Session = Depends(get_db)):
@@ -156,26 +233,83 @@ async def add_video(video_data: VideoAddSchema, db: Session = Depends(get_db)):
     
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
+    
+    transcript_text = result["transcript"]
+    total_duration = result.get("duration", 0)
+    
+    # --- AKILLI DİNAMİK MANTIK ---
+    import re
+    # Metni sadece nokta, ünlem ve soru işaretlerinden bölüyoruz (Cümle bazlı)
+    sentences = [s.strip() for s in re.split(r'(?<=[.!?]) +', transcript_text) if s.strip()]
+    total_sentences = len(sentences)
+    video_timestamps = []
+
+    if total_sentences > 0:
+        # 8 parça oluşturmak için kaç cümlede bir bölmeliyiz?
+        calculated_chunks = max(5, min(15, total_duration // 180))
+        step = max(1, total_sentences // calculated_chunks)
+        
+        for i in range(0, total_sentences, step):
+            if len(video_timestamps) >= 8: break
+            
+            # O anki cümleden başlayarak bir parça metin al
+            current_chunk = " ".join(sentences[i : i + step])
+            # Akıllı başlığı bu parçanın başından üret (AI yarım kelime görmesin)
+            point_label = extract_key_points(current_chunk[:500]) 
+            
+            # Saniyeyi hesapla
+            avg_sec_per_sentence = total_duration / total_sentences
+            current_seconds = int(i * avg_sec_per_sentence)
+            
+            timestamp_str = f"{current_seconds // 60:02d}:{current_seconds % 60:02d}"
+            video_timestamps.append({"time": timestamp_str, "label": point_label})
+    else:
+        # Eğer hiç cümle bulunamazsa (altyazı çok kısaysa) hata vermesin
+        video_timestamps.append({"time": "00:00", "label": "Video İçeriği"})
+    # -----------------------------------------------
+
+    video_summary = generate_summary(transcript_text)
+    video_key_points = extract_key_points(transcript_text[:1024])
 
     try:
         new_video = models.Video(
             title=result.get("actual_title", video_data.title),
             youtube_url=video_data.youtube_url,
-            transcript=result["transcript"], 
-            processed_by_ai=False,
-            course_id=video_data.course_id, # Seçilen koleksiyona bağladık
-            duration_seconds=result.get("duration")
+            transcript=transcript_text, 
+            summary=video_summary,
+            key_points=video_key_points,
+            timestamps=video_timestamps,
+            processed_by_ai=True,
+            course_id=video_data.course_id,
+            duration_seconds=total_duration
         )
         db.add(new_video)
         db.commit()
         db.refresh(new_video)
         
         return {
-            "message": "Video seçilen koleksiyona başarıyla eklendi!", 
+            "message": "Akıllı analiz tamamlandı!", 
             "video_id": new_video.video_id,
-            "course_id": new_video.course_id
+            "timestamps": video_timestamps
         }
     except Exception as e:
         db.rollback()
-        print(f"HATA: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Veritabanı kayıt hatası: {str(e)}")
+        print(f"VERİTABANI HATASI: {e}")
+        raise HTTPException(status_code=500, detail="Kayıt sırasında hata oluştu.")
+    # Buradaki @router kısmını @app yapıyoruz çünkü yukarıda app = FastAPI() dedin.
+@app.get("/api/v1/videos/{video_id}")
+async def get_video_detail(video_id: int, db: Session = Depends(get_db)):
+    # Veritabanından video_id'ye göre veriyi çekiyoruz
+    video = db.query(models.Video).filter(models.Video.video_id == video_id).first()
+    
+    if video is None:
+        raise HTTPException(status_code=404, detail="Video bulunamadı")
+        
+    return {
+        "video_id": video.video_id,
+        "title": video.title,
+        "youtube_url": video.youtube_url,
+        "summary": video.summary,
+        "duzgun_zamanlar": video.timestamps, # Veritabanındaki kolon adın timestamps ise
+        "youtube_id": video.youtube_url.split("v=")[-1] # Video ID'sini parçalayıp gönderiyoruz
+    }

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Play, CheckCircle, Clock, LayoutGrid, Globe, Lock } from "lucide-react";
 
 const AddVideo = () => {
+  const navigate = useNavigate();
   const [videoUrl, setVideoUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [courses, setCourses] = useState([]); 
@@ -35,6 +37,11 @@ const AddVideo = () => {
         course_id: parseInt(selectedCourse),
         is_public: isPublic // Backend'e görünürlük bilgisini de gönderiyoruz
       });
+      const newVideoId = response.data.video_id; 
+      if (newVideoId) {
+      alert("Analiz tamamlandı! Şimdi akıllı notlarına yönlendiriliyorsun.");
+      navigate(`/video-detay/${newVideoId}`); // İşte burası seni 21 numaralı sayfaya götürecek
+    }
       alert(response.data.message);
     } catch (error) {
       alert("Hata: " + error.response?.data?.detail);

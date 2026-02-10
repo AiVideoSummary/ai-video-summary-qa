@@ -38,14 +38,7 @@ function App() {
           } 
         />
 
-        <Route 
-          path="/booklet/:id" 
-          element={
-            <DashboardLayout>
-              <BookletDetail />
-            </DashboardLayout>
-          } 
-        />
+      <Route path="/booklet-detail/:id" element={<DashboardLayout><BookletDetail /></DashboardLayout>} />
         <Route 
   path="/video-ekle" 
   element={
@@ -61,10 +54,19 @@ function App() {
       <VideoDetail />
     </DashboardLayout>
   } 
+  
+/>
+<Route 
+  path="/library" 
+  element={
+    <DashboardLayout>
+      <Dashboard /> 
+    </DashboardLayout>
+  } 
 />
 
-        {/* DÜZELTME 2: Bilinmeyen yollarda Dashboard yerine ana sayfaya (Home) döner */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* DÜZELTME 2: Bilinmeyen yollarda Dashboard yerine ana sayfaya (Home) döner (simdilik dashboard olsun) */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Router>
   );

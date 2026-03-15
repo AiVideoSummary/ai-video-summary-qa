@@ -1,101 +1,147 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom"; 
-import { Search, Bell, Grid, PlayCircle, ArrowRight } from "lucide-react";
-import axios from "axios";
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { Video, Book, Trophy, Search, Bell, PlayCircle, Clock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
+// TASLAKTAKİ GİBİ İSTATİSTİK KARTLARI
+const StatCard = ({ icon, label, value, color }) => (
+  <div className="bg-white p-6 rounded-[32px] shadow-sm flex items-center gap-5 border border-slate-50 flex-1">
+    <div className={`p-4 rounded-2xl ${color}`}>{icon}</div>
+    <div>
+      <p className="text-xl font-black text-slate-800">{value}</p>
+      <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">{label}</p>
+    </div>
+  </div>
+);
+
+// TASLAKTAKİ GİBİ KURS KARTLARI (KÜÇÜK VE ŞIK)
+const CourseCard = ({ title, author, info, progress, colorClass, onClick }) => (
+  <div onClick={onClick} className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-slate-50 hover:shadow-xl transition-all group cursor-pointer">
+    <div className={`h-32 ${colorClass} flex items-center justify-center relative`}>
+        <PlayCircle size={40} className="text-white/70 group-hover:scale-110 transition-transform" />
+    </div>
+    <div className="p-6">
+      <h4 className="font-bold text-slate-800 mb-1 truncate text-sm">{title}</h4>
+      <p className="text-[10px] text-slate-400 mb-4 flex justify-between items-center">
+        <span>{author}</span>
+        <span className="bg-slate-50 px-2 py-0.5 rounded text-[9px] font-black uppercase text-slate-400">{info}</span>
+      </p>
+      <div className="w-full bg-slate-100 h-1.5 rounded-full mb-2">
+        <div className={`h-full rounded-full transition-all duration-1000 ${colorClass}`} style={{ width: `${progress}%` }}></div>
+      </div>
+      <div className="flex justify-between items-center text-[9px] font-black uppercase">
+        <span className="text-slate-600">%{progress} TAMAMLANDI</span>
+      </div>
+    </div>
+  </div>
+);
 
 const Dashboard = () => {
-  const navigate = useNavigate(); 
-  const [userName, setUserName] = useState("Kullanıcı");
-  const [booklets, setBooklets] = useState([]); 
+  const navigate = useNavigate();
+  const [allCourses, setAllCourses] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const cardColors = ["bg-blue-500", "bg-emerald-500", "bg-orange-500", "bg-purple-500", "bg-pink-500"];
+  const [user, setUser] = useState({ full_name: "Azra", id: null });
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("user");
-    if (savedUser) {
-      const userData = JSON.parse(savedUser);
-      setUserName(userData.full_name.split(" ")[0]);
-    }
+    const savedUser = JSON.parse(localStorage.getItem("user"));
+    if (savedUser) setUser(savedUser);
 
-    const fetchBooklets = async () => {
+    const fetchCourses = async () => {
       try {
-        const response = await axios.get("http://localhost:8000/api/v1/courses");
-        setBooklets(response.data);
-      } catch (error) {
-        console.error("Kitapçıklar yüklenemedi:", error);
+        const res = await axios.get("http://localhost:8000/api/v1/courses");
+        setAllCourses(res.data);
+      } catch (err) {
+        console.error("Veriler çekilemedi", err);
       } finally {
         setLoading(false);
       }
     };
-    fetchBooklets();
+    fetchCourses();
   }, []);
 
-  // --- KRİTİK FONKSİYON: TIKLAYINCA İLK VİDEOYU BULUR ---
-  const handleBookletClick = async (courseId) => {
-    try {
-      // Önce bu kitapçığın içindeki videoları soruyoruz
-      const response = await axios.get(`http://localhost:8000/api/v1/courses/${courseId}/videos`);
-      const videos = response.data;
+  if (loading) return <div className="p-10 text-center font-bold text-slate-400">Yükleniyor...</div>;
 
-      if (videos && videos.length > 0) {
-        // Eğer içinde ders varsa, ilk dersin ID'si ile Booklet Detail'e git
-        navigate(`/booklet-detail/${videos[0].video_id}`);
-      } else {
-        // Boşsa uyarı ver
-        alert("Bu kitapçıkta henüz ders yok. Lütfen video ekleyin!");
-      }
-    } catch (error) {
-      console.error("Ders listesi alınamadı:", error);
-      alert("Hata: Kitapçık içeriğine ulaşılamadı.");
-    }
-  };
+  // İSTATİSTİK HESAPLAMALARI
+  const totalCompletedVideos = allCourses.reduce((acc, c) => acc + (c.videos?.filter(v => v.is_completed).length || 0), 0);
+  const totalCoursesCount = allCourses.length;
+  const totalScore = totalCompletedVideos * 50;
+
+  // SADECE DEVAM EDİLENLER (En az 1 videosu bitmiş olanlar)
+  const continuingCourses = allCourses.filter(c => c.videos?.some(v => v.is_completed));
+  
+  // TOPLULUKTAN ÖNERİLER (Keşfet kısmı için)
+  const communityCourses = allCourses.filter(c => c.is_public);
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-8">
+    <div className="p-8 bg-[#F8F9FB] min-h-screen font-sans">
+      {/* ÜST BAŞLIK */}
       <div className="flex justify-between items-center mb-10">
-        <div className="relative w-96">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input type="text" placeholder="Kitapçık veya video ara..." className="w-full pl-12 pr-4 py-3 bg-white border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-purple-200 transition-all text-sm"/>
+        <div>
+          <h1 className="text-2xl font-black text-slate-800">Merhaba, {user.full_name.split(' ')[0]}! 👋</h1>
+          <p className="text-slate-400 text-sm font-medium italic">Öğrenme yolculuğuna kaldığın yerden devam et.</p>
         </div>
         <div className="flex items-center gap-4">
-          <button className="p-3 bg-white rounded-xl text-slate-400 border border-slate-100"><Bell size={20} /></button>
-          <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center text-white font-bold">
-            {userName.charAt(0).toUpperCase()}
+          <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-slate-400 cursor-pointer">
+            <Bell size={18} />
+          </div>
+          <div className="w-10 h-10 bg-purple-600 rounded-xl shadow-sm flex items-center justify-center text-white font-bold text-xs cursor-pointer">
+            AZ
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl">
-        <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Merhaba, {userName}! 👋</h1>
-        <p className="text-slate-500 mb-10">Yapay zeka asistanın NoteGenie'ye tekrar hoş geldin.</p>
+      {/* İSTATİSTİK KARTLARI (TASLAKTAKİ GİBİ) */}
+      <div className="flex flex-col md:flex-row gap-6 mb-12">
+        <StatCard icon={<Video className="text-blue-500" />} label="İzlenen Video" value={totalCompletedVideos} color="bg-blue-50" />
+        <StatCard icon={<Book className="text-purple-500" />} label="Toplam Kitapçık" value={totalCoursesCount} color="bg-purple-50" />
+        <StatCard icon={<Trophy className="text-orange-500" />} label="Toplam Puan" value={totalScore} color="bg-orange-50" />
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {loading ? (
-            <div className="col-span-full text-center py-10">Yükleniyor...</div>
-          ) : booklets.map((book, index) => (
-            <div 
-              key={book.course_id} 
-              // GÜNCELLENEN KISIM: Direkt navigate değil, fonksiyonu çağırıyoruz
-              onClick={() => handleBookletClick(book.course_id)} 
-              className="group bg-white rounded-[32px] overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer"
-            >
-              <div className={`${cardColors[index % cardColors.length]} h-40 flex items-center justify-center text-white/90 relative`}>
-                <Grid size={48} strokeWidth={1.5} />
-              </div>
-              <div className="p-6">
-                <h3 className="text-xl font-bold text-slate-800 mb-1 truncate">{book.title}</h3>
-                <p className="text-slate-400 text-sm mb-4 line-clamp-1">{book.description}</p>
-                <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                  <div className="flex items-center gap-2 text-purple-600 font-bold text-sm">
-                    <PlayCircle size={18} /><span>İncele</span>
-                  </div>
-                  <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-                    <ArrowRight size={16} />
-                  </div>
-                </div>
-              </div>
+      {/* DEVAM EDEN VİDEOLAR (TASLAKTAKİ BAŞLIK) */}
+      <div className="mb-12">
+        <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
+           <Clock size={20} className="text-purple-600" /> Devam Eden Kitapçıklar
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {continuingCourses.map((course) => {
+            const allVids = course.videos || [];
+            const completed = allVids.filter(v => v.is_completed === true || v.is_completed === "t").length;
+            const progress = allVids.length > 0 ? Math.round((completed / allVids.length) * 100) : 0;
+
+            return (
+              <CourseCard 
+                key={course.course_id}
+                title={course.title}
+                author="Senin Kitapçığın"
+                info={`${allVids.length} İçerik`}
+                progress={progress}
+                colorClass="bg-purple-600"
+                onClick={() => navigate(`/booklet-detail/${course.course_id}`)}
+              />
+            );
+          })}
+          {continuingCourses.length === 0 && (
+            <div className="col-span-full p-10 bg-white rounded-[32px] text-center border-2 border-dashed border-slate-100">
+               <p className="text-slate-400 font-bold">Henüz devam ettiğin bir çalışma yok. Hadi başla! 🚀</p>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* TOPLULUKTAN ÖNERİLER */}
+      <div>
+        <h2 className="text-xl font-black text-slate-800 mb-6">Topluluktan Keşfet</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {communityCourses.slice(0, 4).map((course, index) => (
+            <CourseCard 
+              key={course.course_id}
+              title={course.title}
+              author={course.author_name || "NoteGenie Üyesi"}
+              info={`${course.videos?.length || 0} İçerik`}
+              progress={0}
+              colorClass={index % 2 === 0 ? "bg-blue-600" : "bg-emerald-500"}
+              onClick={() => navigate(`/booklet-detail/${course.course_id}`)}
+            />
           ))}
         </div>
       </div>

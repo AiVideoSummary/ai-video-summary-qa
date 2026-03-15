@@ -8,7 +8,9 @@ import Sidebar from './components/Sidebar';
 import BookletDetail from './pages/BookletDetail';
 import AddVideo from './pages/AddVideo';
 import VideoDetail from './pages/VideoDetail';
-
+import AddPdf from './pages/AddPdf';
+import Library from './pages/Library';
+import Settings  from './pages/Settings';
 // Dashboard ve iç sayfalar için Sidebar'lı düzen
 const DashboardLayout = ({ children }) => (
   <div className="flex min-h-screen bg-slate-50 font-sans">
@@ -47,6 +49,10 @@ function App() {
     </DashboardLayout>
   } 
 />
+    <Route 
+          path="/pdf-ekle" 
+          element={<DashboardLayout><AddPdf /></DashboardLayout>} 
+        />
 <Route 
   path="/video-detay/:id" 
   element={
@@ -57,13 +63,23 @@ function App() {
   
 />
 <Route 
-  path="/library" 
-  element={
-    <DashboardLayout>
-      <Dashboard /> 
-    </DashboardLayout>
-  } 
-/>
+          path="/library" 
+          element={
+            <DashboardLayout>
+              <Library />
+            </DashboardLayout>
+          } 
+        />
+        <Route 
+          path="/settings" 
+          element={
+            <DashboardLayout>
+              <Settings />
+            </DashboardLayout>
+          } 
+        />
+  
+
 
         {/* DÜZELTME 2: Bilinmeyen yollarda Dashboard yerine ana sayfaya (Home) döner (simdilik dashboard olsun) */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

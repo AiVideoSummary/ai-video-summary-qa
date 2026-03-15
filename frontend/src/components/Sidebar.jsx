@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Home, BookOpen, PlusCircle, Bookmark, Settings, LogOut, Sparkles } from "lucide-react";
+import { FileText, Youtube } from 'lucide-react';
 
 const Sidebar = () => {
   const navigate = useNavigate();
@@ -16,9 +17,11 @@ const Sidebar = () => {
   }, []);
 
   const menuItems = [
+
     { name: "Ana Sayfa", path: "/dashboard", icon: <Home size={20} /> },
     { name: "Kütüphanem", path: "/library", icon: <BookOpen size={20} /> },
-    { name: "Video Ekle", path: "/video-ekle", icon: <PlusCircle size={20} /> },
+    { name: "Video Ekle", path: "/video-ekle", icon: <Youtube size={20} /> },
+    { name: "PDF Ekle", path: "/pdf-ekle", icon: <FileText size={20} /> },
     { name: "Kaydettiklerim", path: "/saved", icon: <Bookmark size={20} /> },
     { name: "Ayarlar", path: "/settings", icon: <Settings size={20} /> },
   ];

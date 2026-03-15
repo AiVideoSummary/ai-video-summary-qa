@@ -35,7 +35,8 @@ class Course(Base):
     title = Column(String, nullable=False)
     description = Column(Text)
     thumbnail_url = Column(Text)
-    is_public = Column(Boolean, default=True)
+    is_public = Column(Boolean, default=False)
+    author_name = Column(String, nullable=True)
     view_count = Column(Integer, default=0)
     enrollment_count = Column(Integer, default=0)
     created_at = Column(DateTime, server_default=func.now())
@@ -49,6 +50,8 @@ class Video(Base):
     youtube_url = Column(Text, nullable=False)
     transcript = Column(Text, nullable=True)  # BU SATIRI EKLEDİK
     summary = Column(Text, nullable=True)
+    is_completed = Column(Boolean, default=False)
+    is_visited = Column(Boolean, default=False)
 
     key_points = Column(Text, nullable=True) # Madde madde önemli noktalar
     timestamps = Column(JSON, nullable=True) # [{"time": "02:30", "label": "Giriş"}] gibi...

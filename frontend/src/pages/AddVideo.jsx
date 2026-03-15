@@ -72,10 +72,12 @@ const AddVideo = () => {
         is_public: isPublic
       });
       
-      const newVideoId = response.data.video_id; 
-      if (newVideoId) {
-        navigate(`/booklet-detail/${newVideoId}`);
-      }
+      const courseId = response.data.course_id; // Backend'den dönen course_id
+        if (courseId) {
+    // Videoya değil, direkt KİTAPÇIĞA (Koleksiyona) git
+        navigate(`/booklet-detail/${selectedCourse}`); 
+}
+    
     } catch (error) {
       console.error("Video ekleme hatası:", error);
       alert("Hata: " + (error.response?.data?.detail || "Sunucuya ulaşılamadı."));
